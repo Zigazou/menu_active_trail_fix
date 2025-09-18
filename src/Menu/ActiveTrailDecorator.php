@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\menu_active_trail_fix;
+namespace Drupal\menu_active_trail_fix\Menu;
 
 use Drupal\Core\Menu\MenuActiveTrailInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
@@ -12,28 +12,28 @@ use Drupal\Core\Menu\MenuLinkManagerInterface;
  *
  * This decorator provides a more tolerant active trail resolution.
  */
-final class ActiveTrailDecorator implements MenuActiveTrailInterface {
+class ActiveTrailDecorator implements MenuActiveTrailInterface {
 
   /**
    * The decorated MenuActiveTrailInterface instance.
    *
    * @var \Drupal\Core\Menu\MenuActiveTrailInterface
    */
-  private MenuActiveTrailInterface $inner;
+  protected MenuActiveTrailInterface $inner;
 
   /**
    * The current route match object.
    *
    * @var \Drupal\Core\Routing\RouteMatchInterface
    */
-  private RouteMatchInterface $routeMatch;
+  protected RouteMatchInterface $routeMatch;
 
   /**
    * The menu link manager service.
    *
    * @var \Drupal\Core\Menu\MenuLinkManagerInterface
    */
-  private MenuLinkManagerInterface $menuLinkManager;
+  protected MenuLinkManagerInterface $menuLinkManager;
 
   public function __construct(
     MenuActiveTrailInterface $inner,
@@ -48,7 +48,7 @@ final class ActiveTrailDecorator implements MenuActiveTrailInterface {
   /**
    * Routine locale qui résout un lien actif en étant plus tolérante.
    */
-  private function resolveActiveLink(?string $menu_name = NULL): ?MenuLinkInterface {
+  protected function resolveActiveLink(?string $menu_name = NULL): ?MenuLinkInterface {
     $route_name = $this->routeMatch->getRouteName();
     if (!$route_name) {
       return NULL;
