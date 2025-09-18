@@ -8,19 +8,32 @@ use Drupal\Core\Menu\MenuLinkInterface;
 use Drupal\Core\Menu\MenuLinkManagerInterface;
 
 /**
- * Tolerant decorator for active trail calculation.
+ * Decorator for MenuActiveTrailInterface.
  *
- * Goal: work around the regression where loadLinksByRoute() no longer
- * finds the link when default parameters are present on the route.
- *
- * @see https://www.drupal.org/project/drupal/issues/3359511
+ * This decorator provides a more tolerant active trail resolution.
  */
 final class ActiveTrailDecorator implements MenuActiveTrailInterface {
 
   /**
-   * The decorated core service.
+   * The decorated MenuActiveTrailInterface instance.
+   *
+   * @var \Drupal\Core\Menu\MenuActiveTrailInterface
    */
   private MenuActiveTrailInterface $inner;
+
+  /**
+   * The current route match object.
+   *
+   * @var \Drupal\Core\Routing\RouteMatchInterface
+   */
+  private RouteMatchInterface $routeMatch;
+
+  /**
+   * The menu link manager service.
+   *
+   * @var \Drupal\Core\Menu\MenuLinkManagerInterface
+   */
+  private MenuLinkManagerInterface $menuLinkManager;
 
   public function __construct(
     MenuActiveTrailInterface $inner,
@@ -33,32 +46,31 @@ final class ActiveTrailDecorator implements MenuActiveTrailInterface {
   }
 
   /**
-   * {@inheritdoc}
+   * Routine locale qui résout un lien actif en étant plus tolérante.
    */
-  public function getActiveLink($menu_name = NULL): ?MenuLinkInterface {
-    // 1) Core behavior (raw parameters).
+  private function resolveActiveLink(?string $menu_name = NULL): ?MenuLinkInterface {
     $route_name = $this->routeMatch->getRouteName();
     if (!$route_name) {
-      return $this->inner->getActiveLink($menu_name);
+      return NULL;
     }
 
+    // 1) Try with raw parameters (core behavior).
     $raw = $this->routeMatch->getRawParameters()->all();
     $links = $this->menuLinkManager->loadLinksByRoute($route_name, $raw);
 
-    // 2) Fallback: converted parameters (often without defaults).
+    // 2) Fallback: converted parameters.
     if (!$links) {
       $converted = $this->routeMatch->getParameters()->all();
       $links = $this->menuLinkManager->loadLinksByRoute($route_name, $converted);
     }
 
-    // 3) Fallback: keep only the variables present in the path.
+    // 3) Fallback: keeps only variables really present in the path.
     if (!$links) {
       $route = $this->routeMatch->getRouteObject();
       if ($route) {
         $filtered = [];
         $variables = $route->compile()->getPathVariables();
         foreach ($variables as $var) {
-          // Prefer raw values to avoid any expensive conversion.
           if ($this->routeMatch->getRawParameters()->has($var)) {
             $filtered[$var] = $this->routeMatch->getRawParameters()->get($var);
           }
@@ -66,37 +78,76 @@ final class ActiveTrailDecorator implements MenuActiveTrailInterface {
             $filtered[$var] = $this->routeMatch->getParameters()->get($var);
           }
         }
-        if (!empty($filtered)) {
+        if ($filtered) {
           $links = $this->menuLinkManager->loadLinksByRoute($route_name, $filtered);
         }
       }
     }
 
-    if ($links) {
-      // If a menu is specified, choose the link from that menu.
-      if ($menu_name && isset($links[$menu_name])) {
-        return $links[$menu_name];
-      }
-      // Otherwise, return the first link found (reasonable behavior).
-      return reset($links);
+    if (!$links) {
+      return NULL;
     }
-
-    // Last resort: fall back to core behavior as-is.
-    return $this->inner->getActiveLink($menu_name);
+    if ($menu_name && isset($links[$menu_name])) {
+      return $links[$menu_name];
+    }
+    return reset($links);
   }
 
   /**
    * {@inheritdoc}
+   *
+   * Note: no direct delegation to inner if result is empty.
    */
   public function getActiveTrailIds($menu_name): array {
-    return $this->inner->getActiveTrailIds($menu_name);
+    // 1) First, try the core: faster (cache).
+    $ids = $this->inner->getActiveTrailIds($menu_name);
+    // Heuristic: often, when it "fails", we only have the root (or empty).
+    if (!empty($ids) && count($ids) > 1) {
+      return $ids;
+    }
+
+    // 2) Our tolerant resolution.
+    $link = $this->resolveActiveLink($menu_name);
+    if ($link instanceof MenuLinkInterface) {
+      $parents = $this->menuLinkManager->getParentIds($link->getPluginId());
+      // The expected order is from roots to leaves. getParentIds()
+      // already returns the parent chain in the correct order.
+      $trail = array_merge($parents, [$link->getPluginId()]);
+      // Drupal expects an associative array key=value of plugin IDs.
+      return array_combine($trail, $trail);
+    }
+
+    // 3) Last resort: core result as is.
+    return $ids;
   }
 
   /**
    * {@inheritdoc}
    */
   public function getActiveTrail($menu_name): array {
-    return $this->inner->getActiveTrail($menu_name);
+    // Idem : si core ne trouve rien, on reconstruit via nos IDs.
+    $trail = $this->inner->getActiveTrail($menu_name);
+    if (!empty($trail)) {
+      return $trail;
+    }
+    $ids = $this->getActiveTrailIds($menu_name);
+    if (empty($ids)) {
+      return [];
+    }
+    // Load definitions from IDs.
+    $definitions = $this->menuLinkManager->loadLinks(array_values($ids));
+    // Return the same format as core: associative array plugin_id =>
+    // definition.
+    return $definitions;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getActiveLink($menu_name = NULL): ?MenuLinkInterface {
+    // Expose our resolution if a caller uses it directly.
+    $link = $this->resolveActiveLink($menu_name);
+    return $link ?? $this->inner->getActiveLink($menu_name);
   }
 
   /**
