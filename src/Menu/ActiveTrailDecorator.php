@@ -48,7 +48,9 @@ class ActiveTrailDecorator implements MenuActiveTrailInterface {
   /**
    * Tries to resolve an active link for the given menu.
    */
-  protected function resolveActiveLink(?string $menu_name = NULL): ?MenuLinkInterface {
+  protected function resolveActiveLink(
+    ?string $menu_name = NULL,
+  ): ?MenuLinkInterface {
     // Let core answer first.
     $core = $this->inner->getActiveLink($menu_name);
     if ($core instanceof MenuLinkInterface) {
@@ -59,16 +61,27 @@ class ActiveTrailDecorator implements MenuActiveTrailInterface {
     if (!$route_name) {
       return NULL;
     }
+
     $route_parameters = $this->routeMatch->getRawParameters()->all() ?? [];
 
     // Exact parameters.
-    $candidates = $this->menuLinkManager->loadLinksByRoute($route_name, $route_parameters, $menu_name);
+    $candidates = $this->menuLinkManager->loadLinksByRoute(
+      $route_name,
+      $route_parameters,
+      $menu_name
+    );
+
     if (!empty($candidates)) {
       return reset($candidates) ?: NULL;
     }
 
     // Same route, ignore parameters (typical for Views pages).
-    $candidates = $this->menuLinkManager->loadLinksByRoute($route_name, [], $menu_name);
+    $candidates = $this->menuLinkManager->loadLinksByRoute(
+      $route_name,
+      [],
+      $menu_name
+    );
+
     if (!empty($candidates)) {
       return reset($candidates) ?: NULL;
     }
@@ -94,7 +107,7 @@ class ActiveTrailDecorator implements MenuActiveTrailInterface {
     // First, try the core: faster (cache).
     $ids = $this->inner->getActiveTrailIds($menu_name);
 
-    // Heuristic: often, when it "fails", we only have the root (or empty).
+    // Often, when it "fails", we only have the root (or empty).
     if (!empty($ids) && count($ids) > 1) {
       return $ids;
     }
@@ -103,9 +116,11 @@ class ActiveTrailDecorator implements MenuActiveTrailInterface {
     $link = $this->resolveActiveLink($menu_name);
     if ($link instanceof MenuLinkInterface) {
       $parents = $this->menuLinkManager->getParentIds($link->getPluginId());
-      // The expected order is from roots to leaves. getParentIds()
-      // already returns the parent chain in the correct order.
+
+      // The expected order is from roots to leaves. getParentIds() already
+      // returns the parent chain in the correct order.
       $trail = array_merge($parents, [$link->getPluginId()]);
+
       // Drupal expects an associative array key=value of plugin IDs.
       return array_combine($trail, $trail);
     }
@@ -118,7 +133,7 @@ class ActiveTrailDecorator implements MenuActiveTrailInterface {
    * {@inheritdoc}
    */
   public function getActiveTrail($menu_name): array {
-    // Idem : si core ne trouve rien, on reconstruit via nos IDs.
+    // Same: if core finds nothing, we rebuild using our IDs.
     $trail = $this->inner->getActiveTrail($menu_name);
     if (!empty($trail)) {
       return $trail;
@@ -131,6 +146,7 @@ class ActiveTrailDecorator implements MenuActiveTrailInterface {
 
     // Load definitions from IDs.
     $definitions = $this->menuLinkManager->loadLinks(array_values($ids));
+
     // Return the same format as core: associative array plugin_id =>
     // definition.
     return $definitions;
