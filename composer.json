@@ -1,5 +1,5 @@
 {
-  "name": "zigazou/menu_active_trail_fix",
+  "name": "drupal/menu_active_trail_fix",
   "description": "Fixes active trail regression (issue 3359511).",
   "type": "drupal-custom-module",
   "authors": [
