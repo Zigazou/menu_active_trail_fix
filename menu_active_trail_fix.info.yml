@@ -1,0 +1,6 @@
+name: 'Menu Active Trail Correct'
+type: module
+description: 'Fixes active trail regression (issue 3359511).'
+package: 'Menu'
+core_version_requirement: ^11
+version: 1.0.0

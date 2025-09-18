@@ -1,0 +1,18 @@
+<?php
+
+/**
+ * @file
+ * Menu Active Trail Fix module.
+ */
+
+use Drupal\Core\Routing\RouteMatchInterface;
+
+/**
+ * Implements hook_help().
+ */
+function menu_active_trail_fix_help($route_name, RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    case 'help.page.menu_active_trail_fix':
+      return t('Provides fix to correct the active trail calculation for menu links.');
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "zigazou/menu_active_trail_correct",
+  "description": "Fixes active trail regression (issue 3359511).",
+  "type": "drupal-custom-module",
+  "authors": [
+    {
+      "name": "Frédéric Bisson",
+      "homepage": "https://www.drupal.org/u/zigazou",
+      "role": "Maintainer"
+    }
+  ],
+  "license": "GPL-3.0+",
+  "minimum-stability": "dev",
+  "require": {
+    "drupal/core": "^11"
+  },
+  "extra": {
+    "drupal": {
+      "version": "1.0.0"
+    }
+  }
+}

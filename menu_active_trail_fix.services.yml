@@ -1,0 +1,9 @@
+services:
+  menu_active_trail_fix.decorator:
+    class: Drupal\menu_active_trail_fix\ActiveTrailDecorator
+    decorates: menu.active_trail
+    arguments:
+      - '@menu_active_trail_fix.decorator.inner'
+      - '@current_route_match'
+      - '@menu.link_manager'
+    public: false
